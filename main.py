@@ -21,6 +21,7 @@ DARK_GRAY: Color = (60, 60, 60)
 BLUE: Color = (80, 140, 255)
 BROWN: Color = (160, 110, 60)
 
+
 # ============================
 # Grid Utilities
 # ============================
@@ -38,25 +39,67 @@ class GridPos:
 # Level
 # ============================
 
+
+# # = wall, @ = player, + = player on goal, $ = box, * = box on goal, . = goal, ' ' = floor
+level_str: str = """
+######
+#.@ ##
+# #  #
+#$#  #
+#    #
+######
+"""
+
+
 class Level:
-    def __init__(self, width: int, height: int, walls: Iterable[GridPos]) -> None:
-        self.width = width
-        self.height = height
-        self._walls: set[GridPos] = set(walls)
+    def __init__(self, level: str) -> None:
+        self.walls: set[GridPos] = set()
+        self.goals: set[GridPos] = set()
+        self.boxes: set[GridPos] = set()
+        self.player: GridPos | None = None
+
+        rows = [row.rstrip("\n") for row in level.strip("\n").splitlines()]
+
+        for y, row in enumerate(rows):
+            for x, ch in enumerate(row):
+                pos = GridPos(x, y)
+
+                match ch:
+                    case "#":  # wall
+                        self.walls.add(pos)
+
+                    case ".":  # goal
+                        self.goals.add(pos)
+
+                    case "$":  # box
+                        self.boxes.add(pos)
+
+                    case "@":  # player
+                        self.player = pos
+
+                    case "*":  # box on goal
+                        self.boxes.add(pos)
+                        self.goals.add(pos)
+
+                    case "+":  # player on goal
+                        self.player = pos
+                        self.goals.add(pos)
+
+                    case " ":  # floor
+                        pass
 
     def is_wall(self, pos: GridPos) -> bool:
-        return pos in self._walls
+        return pos in self.walls
 
-    def in_bounds(self, pos: GridPos) -> bool:
-        return 0 <= pos.x < self.width and 0 <= pos.y < self.height
+    def is_solved(self, boxes: list[Box]) -> bool:
+        box_locations = set(b.grid_pos for b in boxes)
+        for g in self.goals:
+            if g not in box_locations:
+                return False
+        return True
 
     def draw(self, surface: pygame.Surface) -> None:
-        for y in range(self.height):
-            for x in range(self.width):
-                rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-                pygame.draw.rect(surface, GRAY, rect, 1)
-
-        for wall in self._walls:
+        for wall in self.walls:
             rect = pygame.Rect(
                 wall.x * TILE_SIZE,
                 wall.y * TILE_SIZE,
@@ -64,6 +107,13 @@ class Level:
                 TILE_SIZE,
             )
             pygame.draw.rect(surface, DARK_GRAY, rect)
+        for goal in self.goals:
+            center = (
+                goal.x * TILE_SIZE + TILE_SIZE // 2,
+                goal.y * TILE_SIZE + TILE_SIZE // 2,
+            )
+            radius = TILE_SIZE // 4
+            pygame.draw.circle(surface, DARK_GRAY, center, radius)
 
 
 # ============================
@@ -79,7 +129,7 @@ class Box:
         dy = int(direction.y)
         target = GridPos(self.grid_pos.x + dx, self.grid_pos.y + dy)
 
-        if not level.in_bounds(target) or level.is_wall(target):
+        if level.is_wall(target):
             return False
 
         if any(b.grid_pos == target for b in boxes):
@@ -113,11 +163,11 @@ class Player:
         return pygame.Rect(self.position, self.size)
 
     def update(
-        self,
-        dt: float,
-        level: Level,
-        boxes: List[Box],
-        input_dir: Vector2,
+            self,
+            dt: float,
+            level: Level,
+            boxes: List[Box],
+            input_dir: Vector2,
     ) -> None:
         if input_dir.length_squared() > 0:
             self.velocity = input_dir.normalize() * PLAYER_SPEED
@@ -128,7 +178,7 @@ class Player:
         future_rect = pygame.Rect(new_pos, self.size)
 
         # Wall collision (simple axis-aligned)
-        for wall in level._walls:
+        for wall in level.walls:
             wall_rect = pygame.Rect(
                 wall.x * TILE_SIZE,
                 wall.y * TILE_SIZE,
@@ -163,25 +213,25 @@ class Player:
 # Game
 # ============================
 
+
 class Game:
     def __init__(self) -> None:
         pygame.init()
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
-        pygame.display.set_caption("Fluid Sokoban")
+        pygame.display.set_caption("Masked Warehouse Man")
         self.clock = pygame.time.Clock()
 
-        self.level = Level(
-            width=12,
-            height=10,
-            walls=[
-                GridPos(3, 3),
-                GridPos(3, 4),
-                GridPos(3, 5),
-            ],
-        )
+        self.level = Level(level_str)
 
-        self.player = Player(Vector2(2 * TILE_SIZE, 2 * TILE_SIZE))
-        self.boxes: List[Box] = [Box(GridPos(5, 5))]
+        self.player = Player(self.level.player.to_world())
+        self.boxes: List[Box] = [Box(b) for b in self.level.boxes]
+
+    def draw_you_won(self) -> None:
+        font = pygame.font.Font(None, 64)
+        text = font.render("You won", True, (20, 20, 20))
+
+        rect = text.get_rect(center=self.screen.get_rect().center)
+        self.screen.blit(text, rect)
 
     def input_direction(self) -> Vector2:
         keys = pygame.key.get_pressed()
@@ -206,6 +256,9 @@ class Game:
             for box in self.boxes:
                 box.draw(self.screen)
             self.player.draw(self.screen)
+            if self.level.is_solved(self.boxes):
+                self.draw_you_won()
+
             pygame.display.flip()
 
         pygame.quit()
