@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional, Tuple
 # Config / Constants
 # ============================
 
-TILE_SIZE: int = 48
+TILE_SIZE: int = 64
 SCREEN_SIZE: tuple[int, int] = (800, 600)
 PLAYER_SPEED: float = 220.0  # pixels / second
 
@@ -157,6 +157,10 @@ class Player:
         self.position: Vector2 = start_pos
         self.velocity: Vector2 = Vector2(0, 0)
         self.size: Vector2 = Vector2(TILE_SIZE * 0.7)
+        self.can_push = True
+        self.can_break = False
+        self.can_pull = False
+        self.can_teleport = False
 
     @property
     def rect(self) -> pygame.Rect:
@@ -198,7 +202,7 @@ class Player:
             )
             if future_rect.colliderect(box_rect):
                 direction = Vector2(round(input_dir.x), round(input_dir.y))
-                if direction.length_squared() == 0:
+                if not self.can_push:
                     return
                 if not box.try_push(direction, level, boxes):
                     return
@@ -218,7 +222,7 @@ class Game:
     def __init__(self) -> None:
         pygame.init()
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
-        pygame.display.set_caption("Masked Warehouse Man")
+        pygame.display.set_caption("The Masked Warehouseperson")
         self.clock = pygame.time.Clock()
 
         self.level = Level(level_str)
