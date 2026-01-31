@@ -3,6 +3,29 @@
 # P = push mask, B = break mask, I = ignore mask
 # rules: each level must be solvable be surrounded by walls
 
+level_str_hard2: str = """
+
+###########
+####...####
+#P$$$$$$$B#
+#$#.$$$.#$#
+#$#.$#$.#$#
+#$#.$$$.#$#
+#I#######$#
+#@$.$.$.$$#
+###########
+"""
+
+level_str_hard1: str = """
+#.##P###B######
+#$##@###  ######
+#.$  $. $ ######
+#$##$# ## ######
+#.$  $. $ ######
+#$#   ### ######
+#     ########
+###############
+"""
 
 level_str_medium3: str = """
 #     B    #####
@@ -66,4 +89,4 @@ level_str_push_tutorial: str = """
 ######
 """
 
-all_levels = [level_str_push_tutorial, level_str_ignore_tutorial, level_str_all_masks_tutorial, level_str_medium1, level_str_medium2, level_str_medium3]
+all_levels = [level_str_push_tutorial, level_str_ignore_tutorial, level_str_all_masks_tutorial, level_str_medium1, level_str_medium2, level_str_medium3, level_str_hard1, level_str_hard2]
