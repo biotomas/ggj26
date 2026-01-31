@@ -11,8 +11,8 @@ In Pycharm click in menu
 - right click on **main.py** and select **run**
 
 ## TODO
-- [ ] implement break and walk through boxes
-- [ ] pickup and swap masks
+- [X] implement break and walk through boxes
+- [X] pickup and swap masks
 - [ ] reskin the game to look good (box is crystal)
 - [ ] animated sliding boxes
 - [ ] good looking animated character
