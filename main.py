@@ -552,26 +552,39 @@ class Game:
         self.player = Player(self.level.player.to_world())
         self.boxes: List[Box] = [Box(b) for b in self.level.boxes]
 
-    def draw_hud(self,
-                 slot_size: int = 70,
-                 padding: int = 10,
-                 bottom_margin: int = 20,
-                 highlight_color: tuple[int, int, int] = (255, 215, 0),
-                 highlight_width: int = 10,
-                 highlight_radius: int = 10,
-                 ) -> None:
+    def draw_hud(
+            self,
+            slot_size: int = 70,
+            padding: int = 10,
+            bottom_margin: int = 20,
+            highlight_color: tuple[int, int, int] = (255, 215, 0),
+            highlight_width: int = 10,
+            highlight_radius: int = 10,
+            bg_color: tuple[int, int, int, int] = (50, 50, 50, 180),  # semi-transparent gray
+            bg_radius: int = 16,
+    ) -> None:
         """
+        Draw the HUD with 4 slots and a semi-transparent background.
         slot_images: list of length 4 (None = empty slot)
         highlighted_index: index of the selected slot (0–3)
         """
         slot_images = [None, push_mask, break_mask, ignore_mask]
-
         assert len(slot_images) == 4
 
+        # Compute HUD rectangle
         total_width = 4 * slot_size + 3 * padding
+        hud_height = slot_size
         start_x = (SCREEN_SIZE[0] - total_width) // 2
         y = SCREEN_SIZE[1] - slot_size - bottom_margin
 
+        hud_rect = pygame.Rect(start_x - padding, y - padding, total_width + 2 * padding, hud_height + 2 * padding)
+
+        # --- Draw semi-transparent background ---
+        bg_surf = pygame.Surface((hud_rect.width, hud_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(bg_surf, bg_color, bg_surf.get_rect(), border_radius=bg_radius)
+        self.screen.blit(bg_surf, hud_rect.topleft)
+
+        # --- Draw slots ---
         for i in range(4):
             slot_rect = pygame.Rect(
                 start_x + i * (slot_size + padding),
@@ -596,17 +609,12 @@ class Game:
 
             # Scale image while preserving aspect ratio
             img_w, img_h = image.get_size()
-            scale = min(
-                (slot_size - 12) / img_w,
-                (slot_size - 12) / img_h,
-            )
-
+            scale = min((slot_size - 12) / img_w, (slot_size - 12) / img_h)
             new_size = (int(img_w * scale), int(img_h * scale))
             scaled = pygame.transform.smoothscale(image, new_size)
 
+            # Transparency for unavailable abilities
             alpha = 255 if Power(i) in self.player.abilities else 50
-
-            # Apply transparency (copy so original image is not modified)
             if alpha < 255:
                 scaled = scaled.copy()
                 scaled.set_alpha(alpha)
