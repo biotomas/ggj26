@@ -47,9 +47,9 @@ class GridPos:
 level_str: str = """
 ######
 #.@ ##
-#P#  #
-#$#  #
-#    #
+#P# B#
+#$# I#
+#$   #
 ######
 """
 
@@ -174,14 +174,24 @@ class Box:
         self.grid_pos = target
         return True
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface: pygame.Surface, transparency: float) -> None:
+        alpha = max(0, min(255, int(transparency * 255)))
+
         rect = pygame.Rect(
             self.grid_pos.x * TILE_SIZE,
             self.grid_pos.y * TILE_SIZE,
             TILE_SIZE,
             TILE_SIZE,
         )
-        pygame.draw.rect(surface, BROWN, rect)
+
+        # Create a temporary surface with per-pixel alpha
+        temp_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+
+        # Fill with RGBA color
+        temp_surf.fill((*BROWN, alpha))
+
+        # Blit onto the target surface
+        surface.blit(temp_surf, rect.topleft)
 
 
 # ============================
@@ -193,10 +203,8 @@ class Player:
         self.position: Vector2 = start_pos
         self.velocity: Vector2 = Vector2(0, 0)
         self.size: Vector2 = Vector2(TILE_SIZE * 0.7)
-        self.can_push = True
-        self.can_break = False
-        self.can_pull = False
-        self.can_teleport = False
+        self.abilities = set()
+        self.current_ability = None
 
     @property
     def rect(self) -> pygame.Rect:
@@ -228,20 +236,37 @@ class Player:
             if future_rect.colliderect(wall_rect):
                 return
 
-        # Box pushing logic (grid-aligned)
-        for box in boxes:
-            box_rect = pygame.Rect(
-                box.grid_pos.x * TILE_SIZE,
-                box.grid_pos.y * TILE_SIZE,
+        if self.current_ability != Power.IGNORE:
+            # Box pushing logic (grid-aligned)
+            for box in boxes.copy():
+                box_rect = pygame.Rect(
+                    box.grid_pos.x * TILE_SIZE,
+                    box.grid_pos.y * TILE_SIZE,
+                    TILE_SIZE,
+                    TILE_SIZE,
+                )
+                if future_rect.colliderect(box_rect):
+                    direction = Vector2(round(input_dir.x), round(input_dir.y))
+                    if self.current_ability == Power.BREAK:
+                        boxes.remove(box)
+                        return
+                    if self.current_ability != Power.PUSH:
+                        return
+                    if not box.try_push(direction, level, boxes):
+                        return
+
+        # Max pickup
+        for mask in level.masks.copy():
+            mask_rect = pygame.Rect(
+                mask.pos.x * TILE_SIZE,
+                mask.pos.y * TILE_SIZE,
                 TILE_SIZE,
                 TILE_SIZE,
             )
-            if future_rect.colliderect(box_rect):
-                direction = Vector2(round(input_dir.x), round(input_dir.y))
-                if not self.can_push:
-                    return
-                if not box.try_push(direction, level, boxes):
-                    return
+            if future_rect.colliderect(mask_rect):
+                self.abilities.add(mask.power)
+                self.current_ability = mask.power
+                level.masks.remove(mask)
 
         self.position = new_pos
 
@@ -301,7 +326,7 @@ class Game:
             self.screen.fill(WHITE)
             self.level.draw(self.screen)
             for box in self.boxes:
-                box.draw(self.screen)
+                box.draw(self.screen, 0.5 if self.player.current_ability == Power.IGNORE else 1)
             for mask in self.level.masks:
                 mask.draw(self.screen)
             self.player.draw(self.screen)
