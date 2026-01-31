@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import math
 import time
+from dataclasses import dataclass
 from enum import Enum
+from typing import Iterable, List
 
 import pygame
 from pygame.math import Vector2
-from dataclasses import dataclass
-from typing import Iterable, List, Optional, Tuple
+
+from levels import all_levels
 
 # ============================
 # Config / Constants
@@ -56,7 +58,7 @@ class GridPos:
 # ============================
 
 
-# # = wall, @ = player, + = player on goal, $ = box, * = box on goal, . = goal, ' ' = floor
+# # = wall, @ = player, + = player on goal, $ = crystal, * = crystal on goal, . = goal, ' ' = floor
 # P = push mask, B = break mask, I = ignore mask
 level_str: str = """
 ######
@@ -404,10 +406,11 @@ class Game:
         self.level = None
         self.player = None
         self.boxes = None
-        self.restart_level(level_str)
+        self.level_index = 0
+        self.restart_level()
 
-    def restart_level(self, level: str) -> None:
-        self.level = Level(level)
+    def restart_level(self) -> None:
+        self.level = Level(all_levels[self.level_index])
         self.player = Player(self.level.player.to_world())
         self.boxes: List[Box] = [Box(b) for b in self.level.boxes]
 
@@ -499,7 +502,7 @@ class Game:
                     if event.key == pygame.K_SPACE:
                         self.player.next_ability()
             if pygame.key.get_pressed()[pygame.K_r]:
-                self.restart_level(level_str)
+                self.restart_level()
 
             self.player.update(dt, self.level, self.boxes, self.input_direction())
 
@@ -516,6 +519,8 @@ class Game:
             self.player.draw(self.screen, time.time_ns()/1000000000)
             if self.level.is_solved(self.boxes):
                 self.draw_you_won()
+                self.level_index = (self.level_index + 1) % len(all_levels)
+                self.restart_level()
             self.draw_hud()
 
             pygame.display.flip()
