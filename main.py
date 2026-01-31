@@ -133,7 +133,7 @@ class Level:
                 return False
         return True
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface: pygame.Surface, camera: Camera2D) -> None:
         for floor in self.floors:
             rect = pygame.Rect(
                 floor.x * TILE_SIZE,
@@ -146,7 +146,7 @@ class Level:
             scaled_image = pygame.transform.smoothscale(floor_normal, (TILE_SIZE, TILE_SIZE))
 
             # Draw the image
-            surface.blit(scaled_image, rect.topleft)
+            camera.blit(surface, scaled_image, rect.topleft)
         # for wall in self.walls:
         #     rect = pygame.Rect(
         #         wall.x * TILE_SIZE,
@@ -166,7 +166,7 @@ class Level:
             scaled_image = pygame.transform.smoothscale(floor_glow, (TILE_SIZE, TILE_SIZE))
 
             # Draw the image
-            surface.blit(scaled_image, rect.topleft)
+            camera.blit(surface, scaled_image, rect.topleft)
 
 
 class Power(Enum):
@@ -196,7 +196,7 @@ class Mask:
             TILE_SIZE - 30,
         )
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface: pygame.Surface, camera: Camera2D) -> None:
 
         image = self.power.get_image()
 
@@ -218,7 +218,7 @@ class Mask:
         # Center the image in the target rect
         image_rect = scaled_image.get_rect(center=self.rect.center)
 
-        surface.blit(scaled_image, image_rect)
+        camera.blit(surface, scaled_image, image_rect)
 
 
 # ============================
@@ -293,7 +293,7 @@ class Box:
             self.pixel_pos += direction * move_dist
     # --------------------------------------------------
 
-    def draw(self, surface: pygame.Surface, transparency: float, glows: bool) -> None:
+    def draw(self, surface: pygame.Surface, transparency: float, glows: bool, camera: Camera2D) -> None:
         alpha = max(0, min(255, int(transparency * 255)))
 
         rect = pygame.Rect(
@@ -310,7 +310,7 @@ class Box:
             scaled_image = scaled_image.copy()
             scaled_image.set_alpha(alpha)
 
-        surface.blit(scaled_image, rect.topleft)
+        camera.blit(surface, scaled_image, rect.topleft)
 
 
 # ============================
@@ -392,7 +392,7 @@ class Player:
 
         self.position = new_pos
 
-    def draw(self, surface: pygame.Surface, time: int) -> None:
+    def draw(self, surface: pygame.Surface, time: int, camera: Camera2D) -> None:
         # Target area inside the tile
         target_rect = self.rect
 
@@ -430,8 +430,8 @@ class Player:
         offset_y = amplitude * math.sin(2 * math.pi * speed * time)
         image_rect.y -= 40 + offset_y
 
-        pygame.draw.rect(surface, BLUE, self.rect)
-        surface.blit(scaled_image, image_rect)
+        # pygame.draw.rect(surface, BLUE, self.rect)
+        camera.blit(surface, scaled_image, image_rect)
 
 class MusicManager:
     def __init__(self, volume=1.0, fade_ms=300):
@@ -474,6 +474,57 @@ class MusicManager:
 
     # -------------------------------------
 
+class Camera2D:
+    def __init__(self, width: int, height: int, smooth_speed: float = 5.0):
+        self.width = width
+        self.height = height
+        self.pos = pygame.Vector2(0, 0)
+        self.smooth_speed = smooth_speed  # for smooth follow
+
+    # ----------------------------
+
+    def move(self, dx: float, dy: float) -> None:
+        self.pos.x += dx
+        self.pos.y += dy
+
+    def set_pos(self, x: float, y: float) -> None:
+        self.pos.x = x
+        self.pos.y = y
+
+    def follow(self, target_pos: pygame.Vector2, dt: float = 1.0) -> None:
+        """Smoothly follow a target (e.g., player)"""
+        target = pygame.Vector2(
+            target_pos.x - self.width / 2,
+            target_pos.y - self.height / 2
+        )
+        self.pos += (target - self.pos) * min(self.smooth_speed * dt, 1)
+
+    # ----------------------------
+
+    def apply(self, world_pos: pygame.Vector2) -> pygame.Vector2:
+        return world_pos - self.pos
+
+    def apply_rect(self, rect: pygame.Rect) -> pygame.Rect:
+        return rect.move(-self.pos.x, -self.pos.y)
+
+    # ----------------------------
+    # NEW: blit wrapper
+    # ----------------------------
+
+    def blit(self, surface: pygame.Surface, image: pygame.Surface, world_pos, area=None) -> None:
+        """
+        Draw an image on the screen with camera offset.
+
+        - world_pos: pygame.Vector2 or tuple (x, y) in world coordinates
+        - area: optional pygame.Rect to blit a sub-rectangle of the image
+        """
+        if isinstance(world_pos, pygame.Vector2):
+            screen_pos = self.apply(world_pos)
+        else:
+            screen_pos = (world_pos[0] - self.pos.x, world_pos[1] - self.pos.y)
+
+        surface.blit(image, screen_pos, area)
+
 # ============================
 # Game
 # ============================
@@ -486,6 +537,7 @@ class Game:
 
 
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
+        self.camera = Camera2D(SCREEN_SIZE[0], SCREEN_SIZE[1])
         pygame.display.set_caption("Maztek Spirit Warrior")
         self.clock = pygame.time.Clock()
         self.level = None
@@ -616,23 +668,22 @@ class Game:
 
 
             self.player.update(dt, self.level, self.boxes, self.input_direction())
+            self.camera.follow(self.player.position, dt)
 
-            self.screen.fill(WHITE)
             self.screen.blit(background, (0, 0))
 
-            self.level.draw(self.screen)
+            self.level.draw(self.screen, self.camera)
             for box in self.boxes:
                 box.update(dt)
                 transparency = 0.5 if self.player.current_ability == Power.IGNORE else 1
                 glow = box.grid_pos in self.level.goals
-                box.draw(self.screen, transparency, glow)
+                box.draw(self.screen, transparency, glow, self.camera)
             for mask in self.level.masks:
-                mask.draw(self.screen)
-            self.player.draw(self.screen, time.time_ns()/1000000000)
+                mask.draw(self.screen, self.camera)
+            self.player.draw(self.screen, time.time_ns()/1000000000, self.camera)
             if not win_state and self.level.is_solved(self.boxes):
                 win_state = True
                 pygame.time.set_timer(WIN_EVENT, 500, loops=1)
-                print("win event!")
             self.draw_hud()
             if previous_ability != self.player.current_ability:
                 previous_ability = self.player.current_ability
