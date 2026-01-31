@@ -1,6 +1,20 @@
-# ggj26
+# Maztek Spirit Warrior
 
-## How to install
+Each glowing floor tile must be covered by a crystal, otherwise the devil will escape and destroy the world!
+Pickup masks to gain new abilities.
+
+Controls:
+- WASD: movement
+- space: switch ability
+- R: restart level
+
+Credits:
+- programming: Tomas Balyo, ChatGPT
+- music: Meinrad Weiler
+- level design Mihai Herda, Tomas Balyo
+- visuals: ChatGPT, Grok
+
+## How to install project for development
 
 In Pycharm click in menu
 - file

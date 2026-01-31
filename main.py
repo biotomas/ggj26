@@ -401,7 +401,7 @@ class Game:
         pygame.mixer.music.load("assets/GameMusic.mp3")
         pygame.mixer.music.play(loops=-1)
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
-        pygame.display.set_caption("The Masked Warehouseperson")
+        pygame.display.set_caption("Maztek Spirit Warrior")
         self.clock = pygame.time.Clock()
         self.level = None
         self.player = None
