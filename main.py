@@ -477,7 +477,7 @@ class MusicManager:
 # ============================
 # Game
 # ============================
-
+WIN_EVENT = pygame.USEREVENT + 1
 
 class Game:
     def __init__(self) -> None:
@@ -564,10 +564,25 @@ class Game:
 
     def draw_you_won(self) -> None:
         font = pygame.font.Font(None, 64)
-        text = font.render("You won", True, (20, 20, 20))
+        text = font.render("Well done!", True, (20, 20, 20))
 
+        # Center the text
         rect = text.get_rect(center=self.screen.get_rect().center)
-        self.screen.blit(text, rect)
+
+        # --- Create a temporary surface for the rounded rectangle ---
+        padding = 20  # space around the text
+        radius = 16  # corner radius
+
+        bg_surf = pygame.Surface(
+            (rect.width + padding * 2, rect.height + padding * 2), pygame.SRCALPHA
+        )
+        bg_color = (150, 150, 150, 180)  # semi-transparent gray (A=180)
+        pygame.draw.rect(bg_surf, bg_color, bg_surf.get_rect(), border_radius=radius)
+
+        # --- Blit the background and then the text ---
+        bg_rect = bg_surf.get_rect(center=rect.center)
+        self.screen.blit(bg_surf, bg_rect.topleft)
+        self.screen.blit(text, rect.topleft)
 
     def input_direction(self) -> Vector2:
         keys = pygame.key.get_pressed()
@@ -578,6 +593,7 @@ class Game:
 
     def run(self) -> None:
         running = True
+        win_state = False
         previous_ability = self.player.current_ability
         while running:
             dt = self.clock.tick(60) / 1000.0
@@ -588,8 +604,16 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         self.player.next_ability()
-            if pygame.key.get_pressed()[pygame.K_r]:
-                self.restart_level()
+                    if event.key == pygame.K_r:
+                        self.restart_level()
+                if event.type == WIN_EVENT:
+                    self.draw_you_won()
+                    pygame.display.flip()
+                    pygame.time.delay(2000)
+                    self.level_index = (self.level_index + 1) % len(all_levels)
+                    self.restart_level()
+                    win_state = False
+
 
             self.player.update(dt, self.level, self.boxes, self.input_direction())
 
@@ -605,10 +629,10 @@ class Game:
             for mask in self.level.masks:
                 mask.draw(self.screen)
             self.player.draw(self.screen, time.time_ns()/1000000000)
-            if self.level.is_solved(self.boxes):
-                self.draw_you_won()
-                self.level_index = (self.level_index + 1) % len(all_levels)
-                self.restart_level()
+            if not win_state and self.level.is_solved(self.boxes):
+                win_state = True
+                pygame.time.set_timer(WIN_EVENT, 500, loops=1)
+                print("win event!")
             self.draw_hud()
             if previous_ability != self.player.current_ability:
                 previous_ability = self.player.current_ability

@@ -25,12 +25,12 @@ In Pycharm click in menu
 - right click on **main.py** and select **run**
 
 ## TODO
-- [ ] pause after level win
 - [ ] sound effects
 - [ ] camera movement
 - [ ] video
 - [ ] story and tutorial cards
 - [ ] level generator
+- [x] pause after level win
 - [X] implement break and walk through boxes
 - [X] pickup and swap masks
 - [x] reskin the game to look good (box is crystal)
