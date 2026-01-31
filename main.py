@@ -12,7 +12,7 @@ from typing import Iterable, List, Optional, Tuple
 # ============================
 
 TILE_SIZE: int = 64
-SCREEN_SIZE: tuple[int, int] = (800, 600)
+SCREEN_SIZE: tuple[int, int] = (1360, 768)
 PLAYER_SPEED: float = 220.0  # pixels / second
 
 Color = tuple[int, int, int]
@@ -30,7 +30,11 @@ floor_normal = pygame.image.load("assets/floor.png")
 floor_glow = pygame.image.load("assets/floor_glow.png")
 crystal_normal = pygame.image.load("assets/crystal_normal.png")
 crystal_glow = pygame.image.load("assets/crystal_glow.png")
-
+background = pygame.image.load("assets/background.jpg")
+hero_down = pygame.image.load("assets/hero_down.png")
+hero_up = pygame.image.load("assets/hero_up.png")
+hero_left = pygame.image.load("assets/hero_left.png")
+hero_right = pygame.image.load("assets/hero_right.png")
 
 # ============================
 # Grid Utilities
@@ -463,6 +467,8 @@ class Game:
             self.player.update(dt, self.level, self.boxes, self.input_direction())
 
             self.screen.fill(WHITE)
+            self.screen.blit(background, (0, 0))
+
             self.level.draw(self.screen)
             for box in self.boxes:
                 transparency = 0.5 if self.player.current_ability == Power.IGNORE else 1
