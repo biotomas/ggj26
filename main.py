@@ -26,6 +26,10 @@ BROWN: Color = (160, 110, 60)
 break_mask = pygame.image.load("assets/break_mask.png")
 ignore_mask = pygame.image.load("assets/ignore_mask.png")
 push_mask = pygame.image.load("assets/push_mask.png")
+floor_normal = pygame.image.load("assets/floor.png")
+floor_glow = pygame.image.load("assets/floor_glow.png")
+crystal_normal = pygame.image.load("assets/crystal_normal.png")
+crystal_glow = pygame.image.load("assets/crystal_glow.png")
 
 
 # ============================
@@ -50,10 +54,10 @@ class GridPos:
 # P = push mask, B = break mask, I = ignore mask
 level_str: str = """
 ######
-#.@ ##
+#.$@ #
 #P# B#
 #$# I#
-#$   #
+#$  $#
 ######
 """
 
@@ -62,6 +66,7 @@ class Level:
     def __init__(self, level: str) -> None:
         self.walls: set[GridPos] = set()
         self.goals: set[GridPos] = set()
+        self.floors: set[GridPos] = set()
         self.boxes: set[GridPos] = set()
         self.masks: set[Mask] = set()
         self.player: GridPos | None = None
@@ -81,9 +86,11 @@ class Level:
 
                     case "$":  # box
                         self.boxes.add(pos)
+                        self.floors.add(pos)
 
                     case "@":  # player
                         self.player = pos
+                        self.floors.add(pos)
 
                     case "*":  # box on goal
                         self.boxes.add(pos)
@@ -94,16 +101,19 @@ class Level:
                         self.goals.add(pos)
 
                     case "P":  # push mask
+                        self.floors.add(pos)
                         self.masks.add(Mask(pos, Power.PUSH))
 
                     case "B":  # break mask
+                        self.floors.add(pos)
                         self.masks.add(Mask(pos, Power.BREAK))
 
                     case "I":  # Ignore mask
+                        self.floors.add(pos)
                         self.masks.add(Mask(pos, Power.IGNORE))
 
                     case " ":  # floor
-                        pass
+                        self.floors.add(pos)
 
     def is_wall(self, pos: GridPos) -> bool:
         return pos in self.walls
@@ -116,6 +126,19 @@ class Level:
         return True
 
     def draw(self, surface: pygame.Surface) -> None:
+        for floor in self.floors:
+            rect = pygame.Rect(
+                floor.x * TILE_SIZE,
+                floor.y * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE,
+            )
+
+            # Scale the image to fit the tile
+            scaled_image = pygame.transform.smoothscale(floor_normal, (TILE_SIZE, TILE_SIZE))
+
+            # Draw the image
+            surface.blit(scaled_image, rect.topleft)
         for wall in self.walls:
             rect = pygame.Rect(
                 wall.x * TILE_SIZE,
@@ -125,12 +148,17 @@ class Level:
             )
             pygame.draw.rect(surface, DARK_GRAY, rect)
         for goal in self.goals:
-            center = (
-                goal.x * TILE_SIZE + TILE_SIZE // 2,
-                goal.y * TILE_SIZE + TILE_SIZE // 2,
+            rect = pygame.Rect(
+                goal.x * TILE_SIZE,
+                goal.y * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE,
             )
-            radius = TILE_SIZE // 4
-            pygame.draw.circle(surface, DARK_GRAY, center, radius)
+            # Scale the image to fit the tile
+            scaled_image = pygame.transform.smoothscale(floor_glow, (TILE_SIZE, TILE_SIZE))
+
+            # Draw the image
+            surface.blit(scaled_image, rect.topleft)
 
 
 class Power(Enum):
@@ -208,9 +236,10 @@ class Box:
         self.grid_pos = target
         return True
 
-    def draw(self, surface: pygame.Surface, transparency: float) -> None:
+    def draw(self, surface: pygame.Surface, transparency: float, glows: bool) -> None:
         alpha = max(0, min(255, int(transparency * 255)))
 
+        # Target rectangle for the tile
         rect = pygame.Rect(
             self.grid_pos.x * TILE_SIZE,
             self.grid_pos.y * TILE_SIZE,
@@ -218,14 +247,17 @@ class Box:
             TILE_SIZE,
         )
 
-        # Create a temporary surface with per-pixel alpha
-        temp_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        image = crystal_glow if glows else crystal_normal
+        # Scale the image to fit the tile
+        scaled_image = pygame.transform.smoothscale(image, (rect.width, rect.height))
 
-        # Fill with RGBA color
-        temp_surf.fill((*BROWN, alpha))
+        # Apply transparency if needed
+        if alpha < 255:
+            scaled_image = scaled_image.copy()  # don't modify original
+            scaled_image.set_alpha(alpha)
 
-        # Blit onto the target surface
-        surface.blit(temp_surf, rect.topleft)
+        # Draw the image
+        surface.blit(scaled_image, rect.topleft)
 
 
 # ============================
@@ -322,6 +354,9 @@ class Player:
 class Game:
     def __init__(self) -> None:
         pygame.init()
+        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+        pygame.mixer.music.load("assets/GameMusic.mp3")
+        pygame.mixer.music.play(loops=-1)
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
         pygame.display.set_caption("The Masked Warehouseperson")
         self.clock = pygame.time.Clock()
@@ -430,7 +465,9 @@ class Game:
             self.screen.fill(WHITE)
             self.level.draw(self.screen)
             for box in self.boxes:
-                box.draw(self.screen, 0.5 if self.player.current_ability == Power.IGNORE else 1)
+                transparency = 0.5 if self.player.current_ability == Power.IGNORE else 1
+                glow = box.grid_pos in self.level.goals
+                box.draw(self.screen, transparency, glow)
             for mask in self.level.masks:
                 mask.draw(self.screen)
             self.player.draw(self.screen)

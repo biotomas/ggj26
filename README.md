@@ -22,3 +22,4 @@ In Pycharm click in menu
 - [ ] levels
 - [ ] level generator
 
+Spawn_Point_2025!
