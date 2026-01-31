@@ -23,6 +23,10 @@ DARK_GRAY: Color = (60, 60, 60)
 BLUE: Color = (80, 140, 255)
 BROWN: Color = (160, 110, 60)
 
+break_mask = pygame.image.load("assets/break_mask.png")
+ignore_mask = pygame.image.load("assets/ignore_mask.png")
+push_mask = pygame.image.load("assets/push_mask.png")
+
 
 # ============================
 # Grid Utilities
@@ -134,6 +138,15 @@ class Power(Enum):
     BREAK = (200,0,0),
     IGNORE = (100,100,100),
 
+    def get_image(self) -> pygame.Surface:
+        if self == Power.PUSH:
+            return push_mask
+        if self == Power.BREAK:
+            return break_mask
+        if self == Power.IGNORE:
+            return ignore_mask
+        raise ValueError(f"Power {self} not supported")
+
 
 class Mask:
     def __init__(self, pos: GridPos, power: Power) -> None:
@@ -141,15 +154,35 @@ class Mask:
         self.power: Power = power
 
     def draw(self, surface: pygame.Surface) -> None:
-        rect = pygame.Rect(
+        # Target area inside the tile
+        target_rect = pygame.Rect(
             self.pos.x * TILE_SIZE + 5,
             self.pos.y * TILE_SIZE + 5,
             TILE_SIZE - 10,
             TILE_SIZE - 10,
         )
-        pygame.draw.rect(surface, self.power.value, rect)
 
+        image = self.power.get_image()
 
+        img_w, img_h = image.get_size()
+
+        # Scale while maintaining aspect ratio
+        scale = min(
+            target_rect.width / img_w,
+            target_rect.height / img_h
+        )
+
+        new_size = (
+            int(img_w * scale),
+            int(img_h * scale),
+        )
+
+        scaled_image = pygame.transform.smoothscale(image, new_size)
+
+        # Center the image in the target rect
+        image_rect = scaled_image.get_rect(center=target_rect.center)
+
+        surface.blit(scaled_image, image_rect)
 
 
 # ============================
