@@ -388,66 +388,45 @@ class Player:
         surface.blit(scaled_image, image_rect)
 
 class MusicManager:
-    def __init__(self, volume=1.0):
-        pygame.mixer.init()
-        """
-        tracks: list of file paths (length 4)
-        loop_start_ms: millisecond position to loop from
-        """
-        self.tracks = [
+    def __init__(self, volume=1.0, fade_ms=300):
+        files = [
             "assets/music/main.ogg",
             "assets/music/push.ogg",
             "assets/music/break.ogg",
             "assets/music/ignore.ogg"
         ]
-        self.loop_start = 23.429
+
+        self.sounds = [pygame.mixer.Sound(f) for f in files]
+        self.channels = [pygame.mixer.Channel(i) for i in range(len(files))]
+
         self.volume = volume
+        self.fade_ms = fade_ms
 
-        self.current_index = 0
-        self.start_ticks = pygame.time.get_ticks()
-        self.paused_time = 0.0
+        self.current = 0
+        self.start_time = pygame.time.get_ticks() / 1000.0
 
-        pygame.mixer.music.set_volume(self.volume)
-        self._play_track(0, start_pos=0.0)
+        # Start ALL tracks at once, muted
+        for ch, snd in zip(self.channels, self.sounds):
+            ch.play(snd, loops=-1)
+            ch.set_volume(0.0)
 
-    # -----------------------------------------------------
+        # First track audible
+        self.channels[0].set_volume(self.volume)
+    # -------------------------------------
 
-    def _play_track(self, index, start_pos):
-        print(start_pos)
-        pygame.mixer.music.load(self.tracks[index])
-        pygame.mixer.music.play(loops=0, start=start_pos)
-        self.start_ticks = pygame.time.get_ticks() - int(start_pos * 1000)
-        self.current_index = index
-
-    # -----------------------------------------------------
-
-    def get_play_time(self):
-        """Return current playback time in seconds"""
-        elapsed_ms = pygame.time.get_ticks() - self.start_ticks
-        return elapsed_ms / 1000.0
-
-    # -----------------------------------------------------
-
-    def switch_to(self, index, fade_ms=300):
-        """Switch to another track, preserving play time"""
-        if index == self.current_index:
+    def switch_to(self, index):
+        if index == self.current:
             return
 
-        play_time = self.get_play_time()
-        pygame.mixer.music.fadeout(fade_ms)
+        old = self.channels[self.current]
+        new = self.channels[index]
 
-        # Start new track at same time (wrapped later if needed)
-        pygame.time.delay(fade_ms)
-        self._play_track(index, start_pos=play_time)
+        old.set_volume(0)
+        new.set_volume(self.volume)  # already playing → instant sync
 
-    # -----------------------------------------------------
+        self.current = index
 
-    def update(self):
-        """Call every frame to handle looping"""
-        if not pygame.mixer.music.get_busy():
-            # Restart from loop_start, keeping sync
-            print("music looping now")
-            self._play_track(self.current_index, self.loop_start)
+    # -------------------------------------
 
 # ============================
 # Game
@@ -587,8 +566,6 @@ class Game:
             if previous_ability != self.player.current_ability:
                 previous_ability = self.player.current_ability
                 self.music.switch_to(self.player.current_ability.value)
-
-            self.music.update()
 
             pygame.display.flip()
 
