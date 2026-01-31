@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import Enum
+
 import pygame
 from pygame.math import Vector2
 from dataclasses import dataclass
@@ -41,10 +43,11 @@ class GridPos:
 
 
 # # = wall, @ = player, + = player on goal, $ = box, * = box on goal, . = goal, ' ' = floor
+# P = push mask, B = break mask, I = ignore mask
 level_str: str = """
 ######
 #.@ ##
-# #  #
+#P#  #
 #$#  #
 #    #
 ######
@@ -56,6 +59,7 @@ class Level:
         self.walls: set[GridPos] = set()
         self.goals: set[GridPos] = set()
         self.boxes: set[GridPos] = set()
+        self.masks: set[Mask] = set()
         self.player: GridPos | None = None
 
         rows = [row.rstrip("\n") for row in level.strip("\n").splitlines()]
@@ -84,6 +88,15 @@ class Level:
                     case "+":  # player on goal
                         self.player = pos
                         self.goals.add(pos)
+
+                    case "P":  # push mask
+                        self.masks.add(Mask(pos, Power.PUSH))
+
+                    case "B":  # break mask
+                        self.masks.add(Mask(pos, Power.BREAK))
+
+                    case "I":  # Ignore mask
+                        self.masks.add(Mask(pos, Power.IGNORE))
 
                     case " ":  # floor
                         pass
@@ -114,6 +127,29 @@ class Level:
             )
             radius = TILE_SIZE // 4
             pygame.draw.circle(surface, DARK_GRAY, center, radius)
+
+
+class Power(Enum):
+    PUSH = (0,200,0),
+    BREAK = (200,0,0),
+    IGNORE = (100,100,100),
+
+
+class Mask:
+    def __init__(self, pos: GridPos, power: Power) -> None:
+        self.pos: GridPos = pos
+        self.power: Power = power
+
+    def draw(self, surface: pygame.Surface) -> None:
+        rect = pygame.Rect(
+            self.pos.x * TILE_SIZE + 5,
+            self.pos.y * TILE_SIZE + 5,
+            TILE_SIZE - 10,
+            TILE_SIZE - 10,
+        )
+        pygame.draw.rect(surface, self.power.value, rect)
+
+
 
 
 # ============================
@@ -224,11 +260,16 @@ class Game:
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
         pygame.display.set_caption("The Masked Warehouseperson")
         self.clock = pygame.time.Clock()
+        self.level = None
+        self.player = None
+        self.boxes = None
+        self.restart_level(level_str)
 
-        self.level = Level(level_str)
-
+    def restart_level(self, level: str) -> None:
+        self.level = Level(level)
         self.player = Player(self.level.player.to_world())
         self.boxes: List[Box] = [Box(b) for b in self.level.boxes]
+
 
     def draw_you_won(self) -> None:
         font = pygame.font.Font(None, 64)
@@ -252,6 +293,8 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+            if pygame.key.get_pressed()[pygame.K_r]:
+                self.restart_level(level_str)
 
             self.player.update(dt, self.level, self.boxes, self.input_direction())
 
@@ -259,6 +302,8 @@ class Game:
             self.level.draw(self.screen)
             for box in self.boxes:
                 box.draw(self.screen)
+            for mask in self.level.masks:
+                mask.draw(self.screen)
             self.player.draw(self.screen)
             if self.level.is_solved(self.boxes):
                 self.draw_you_won()
