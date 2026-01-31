@@ -134,9 +134,10 @@ class Level:
 
 
 class Power(Enum):
-    PUSH = (0,200,0),
-    BREAK = (200,0,0),
-    IGNORE = (100,100,100),
+    NONE = 0
+    PUSH = 1
+    BREAK = 2
+    IGNORE = 3
 
     def get_image(self) -> pygame.Surface:
         if self == Power.PUSH:
@@ -236,12 +237,18 @@ class Player:
         self.position: Vector2 = start_pos
         self.velocity: Vector2 = Vector2(0, 0)
         self.size: Vector2 = Vector2(TILE_SIZE * 0.7)
-        self.abilities = set()
-        self.current_ability = None
+        self.abilities = {Power.NONE}
+        self.current_ability = Power.NONE
 
     @property
     def rect(self) -> pygame.Rect:
         return pygame.Rect(self.position, self.size)
+
+    def next_ability(self) -> None:
+        for i in range(self.current_ability.value + 1, self.current_ability.value + 5):
+            if Power(i % 4) in self.abilities:
+                self.current_ability = Power(i % 4)
+                return
 
     def update(
             self,
@@ -328,6 +335,67 @@ class Game:
         self.player = Player(self.level.player.to_world())
         self.boxes: List[Box] = [Box(b) for b in self.level.boxes]
 
+    def draw_hud(self,
+                 slot_size: int = 70,
+                 padding: int = 10,
+                 bottom_margin: int = 20,
+                 highlight_color: tuple[int, int, int] = (255, 215, 0),
+                 highlight_width: int = 10,
+                 highlight_radius: int = 10,
+                 ) -> None:
+        """
+        slot_images: list of length 4 (None = empty slot)
+        highlighted_index: index of the selected slot (0–3)
+        """
+        slot_images = [None, push_mask, break_mask, ignore_mask]
+
+        assert len(slot_images) == 4
+
+        total_width = 4 * slot_size + 3 * padding
+        start_x = (SCREEN_SIZE[0] - total_width) // 2
+        y = SCREEN_SIZE[1] - slot_size - bottom_margin
+
+        for i in range(4):
+            slot_rect = pygame.Rect(
+                start_x + i * (slot_size + padding),
+                y,
+                slot_size,
+                slot_size,
+            )
+
+            # Highlighted slot
+            if i == self.player.current_ability.value:
+                pygame.draw.rect(
+                    self.screen,
+                    highlight_color,
+                    slot_rect.inflate(6, 6),
+                    highlight_width,
+                    border_radius=highlight_radius,
+                )
+
+            image = slot_images[i]
+            if image is None:
+                continue
+
+            # Scale image while preserving aspect ratio
+            img_w, img_h = image.get_size()
+            scale = min(
+                (slot_size - 12) / img_w,
+                (slot_size - 12) / img_h,
+            )
+
+            new_size = (int(img_w * scale), int(img_h * scale))
+            scaled = pygame.transform.smoothscale(image, new_size)
+
+            alpha = 255 if Power(i) in self.player.abilities else 50
+
+            # Apply transparency (copy so original image is not modified)
+            if alpha < 255:
+                scaled = scaled.copy()
+                scaled.set_alpha(alpha)
+
+            img_rect = scaled.get_rect(center=slot_rect.center)
+            self.screen.blit(scaled, img_rect)
 
     def draw_you_won(self) -> None:
         font = pygame.font.Font(None, 64)
@@ -351,6 +419,9 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        self.player.next_ability()
             if pygame.key.get_pressed()[pygame.K_r]:
                 self.restart_level(level_str)
 
@@ -365,6 +436,7 @@ class Game:
             self.player.draw(self.screen)
             if self.level.is_solved(self.boxes):
                 self.draw_you_won()
+            self.draw_hud()
 
             pygame.display.flip()
 
