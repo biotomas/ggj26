@@ -387,7 +387,67 @@ class Player:
         pygame.draw.rect(surface, BLUE, self.rect)
         surface.blit(scaled_image, image_rect)
 
+class MusicManager:
+    def __init__(self, volume=1.0):
+        pygame.mixer.init()
+        """
+        tracks: list of file paths (length 4)
+        loop_start_ms: millisecond position to loop from
+        """
+        self.tracks = [
+            "assets/music/main.ogg",
+            "assets/music/push.ogg",
+            "assets/music/break.ogg",
+            "assets/music/ignore.ogg"
+        ]
+        self.loop_start = 23.429
+        self.volume = volume
 
+        self.current_index = 0
+        self.start_ticks = pygame.time.get_ticks()
+        self.paused_time = 0.0
+
+        pygame.mixer.music.set_volume(self.volume)
+        self._play_track(0, start_pos=0.0)
+
+    # -----------------------------------------------------
+
+    def _play_track(self, index, start_pos):
+        print(start_pos)
+        pygame.mixer.music.load(self.tracks[index])
+        pygame.mixer.music.play(loops=0, start=start_pos)
+        self.start_ticks = pygame.time.get_ticks() - int(start_pos * 1000)
+        self.current_index = index
+
+    # -----------------------------------------------------
+
+    def get_play_time(self):
+        """Return current playback time in seconds"""
+        elapsed_ms = pygame.time.get_ticks() - self.start_ticks
+        return elapsed_ms / 1000.0
+
+    # -----------------------------------------------------
+
+    def switch_to(self, index, fade_ms=300):
+        """Switch to another track, preserving play time"""
+        if index == self.current_index:
+            return
+
+        play_time = self.get_play_time()
+        pygame.mixer.music.fadeout(fade_ms)
+
+        # Start new track at same time (wrapped later if needed)
+        pygame.time.delay(fade_ms)
+        self._play_track(index, start_pos=play_time)
+
+    # -----------------------------------------------------
+
+    def update(self):
+        """Call every frame to handle looping"""
+        if not pygame.mixer.music.get_busy():
+            # Restart from loop_start, keeping sync
+            print("music looping now")
+            self._play_track(self.current_index, self.loop_start)
 
 # ============================
 # Game
@@ -397,9 +457,9 @@ class Player:
 class Game:
     def __init__(self) -> None:
         pygame.init()
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-        pygame.mixer.music.load("assets/GameMusic.mp3")
-        pygame.mixer.music.play(loops=-1)
+        self.music = MusicManager()
+
+
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
         pygame.display.set_caption("Maztek Spirit Warrior")
         self.clock = pygame.time.Clock()
@@ -408,6 +468,7 @@ class Game:
         self.boxes = None
         self.level_index = 0
         self.restart_level()
+
 
     def restart_level(self) -> None:
         self.level = Level(all_levels[self.level_index])
@@ -492,6 +553,7 @@ class Game:
 
     def run(self) -> None:
         running = True
+        previous_ability = self.player.current_ability
         while running:
             dt = self.clock.tick(60) / 1000.0
 
@@ -522,6 +584,11 @@ class Game:
                 self.level_index = (self.level_index + 1) % len(all_levels)
                 self.restart_level()
             self.draw_hud()
+            if previous_ability != self.player.current_ability:
+                previous_ability = self.player.current_ability
+                self.music.switch_to(self.player.current_ability.value)
+
+            self.music.update()
 
             pygame.display.flip()
 
