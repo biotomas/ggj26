@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import time
 from enum import Enum
 
 import pygame
@@ -11,7 +13,7 @@ from typing import Iterable, List, Optional, Tuple
 # Config / Constants
 # ============================
 
-TILE_SIZE: int = 64
+TILE_SIZE: int = 80
 SCREEN_SIZE: tuple[int, int] = (1360, 768)
 PLAYER_SPEED: float = 220.0  # pixels / second
 
@@ -143,14 +145,14 @@ class Level:
 
             # Draw the image
             surface.blit(scaled_image, rect.topleft)
-        for wall in self.walls:
-            rect = pygame.Rect(
-                wall.x * TILE_SIZE,
-                wall.y * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE,
-            )
-            pygame.draw.rect(surface, DARK_GRAY, rect)
+        # for wall in self.walls:
+        #     rect = pygame.Rect(
+        #         wall.x * TILE_SIZE,
+        #         wall.y * TILE_SIZE,
+        #         TILE_SIZE,
+        #         TILE_SIZE,
+        #     )
+        #     pygame.draw.rect(surface, DARK_GRAY, rect)
         for goal in self.goals:
             rect = pygame.Rect(
                 goal.x * TILE_SIZE,
@@ -185,15 +187,14 @@ class Mask:
     def __init__(self, pos: GridPos, power: Power) -> None:
         self.pos: GridPos = pos
         self.power: Power = power
+        self.rect = pygame.Rect(
+            self.pos.x * TILE_SIZE + 15,
+            self.pos.y * TILE_SIZE + 15,
+            TILE_SIZE - 30,
+            TILE_SIZE - 30,
+        )
 
     def draw(self, surface: pygame.Surface) -> None:
-        # Target area inside the tile
-        target_rect = pygame.Rect(
-            self.pos.x * TILE_SIZE + 5,
-            self.pos.y * TILE_SIZE + 5,
-            TILE_SIZE - 10,
-            TILE_SIZE - 10,
-        )
 
         image = self.power.get_image()
 
@@ -201,8 +202,8 @@ class Mask:
 
         # Scale while maintaining aspect ratio
         scale = min(
-            target_rect.width / img_w,
-            target_rect.height / img_h
+            self.rect.width / img_w,
+            self.rect.height / img_h
         )
 
         new_size = (
@@ -213,7 +214,7 @@ class Mask:
         scaled_image = pygame.transform.smoothscale(image, new_size)
 
         # Center the image in the target rect
-        image_rect = scaled_image.get_rect(center=target_rect.center)
+        image_rect = scaled_image.get_rect(center=self.rect.center)
 
         surface.blit(scaled_image, image_rect)
 
@@ -272,9 +273,10 @@ class Player:
     def __init__(self, start_pos: Vector2) -> None:
         self.position: Vector2 = start_pos
         self.velocity: Vector2 = Vector2(0, 0)
-        self.size: Vector2 = Vector2(TILE_SIZE * 0.7)
+        self.size: Vector2 = Vector2(TILE_SIZE * 0.3)
         self.abilities = {Power.NONE}
         self.current_ability = Power.NONE
+        self.facing = None
 
     @property
     def rect(self) -> pygame.Rect:
@@ -294,6 +296,7 @@ class Player:
             input_dir: Vector2,
     ) -> None:
         if input_dir.length_squared() > 0:
+            self.facing = input_dir
             self.velocity = input_dir.normalize() * PLAYER_SPEED
         else:
             self.velocity = Vector2(0, 0)
@@ -333,12 +336,7 @@ class Player:
 
         # Max pickup
         for mask in level.masks.copy():
-            mask_rect = pygame.Rect(
-                mask.pos.x * TILE_SIZE,
-                mask.pos.y * TILE_SIZE,
-                TILE_SIZE,
-                TILE_SIZE,
-            )
+            mask_rect = mask.rect
             if future_rect.colliderect(mask_rect):
                 self.abilities.add(mask.power)
                 self.current_ability = mask.power
@@ -346,8 +344,47 @@ class Player:
 
         self.position = new_pos
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface: pygame.Surface, time: int) -> None:
+        # Target area inside the tile
+        target_rect = self.rect
+
+        image = hero_down
+        if self.facing:
+            if self.facing[0] > 0:
+                image = hero_right
+            if self.facing[0] < 0:
+                image = hero_left
+            if self.facing[1] < 0:
+                image = hero_up
+
+        img_w, img_h = image.get_size()
+
+        # Scale while maintaining aspect ratio
+        scale = min(
+            target_rect.width / img_w,
+            target_rect.height / img_h
+        )
+
+        new_size = (
+            4*int(img_w * scale),
+            4*int(img_h * scale),
+        )
+
+        scaled_image = pygame.transform.smoothscale(image, new_size)
+
+        # Center the image in the target rect
+        image_rect = scaled_image.get_rect(center=target_rect.center)
+        # Pulse parameters
+        amplitude = 7  # pixels
+        speed = 1.5  # cycles per second
+
+        # Vertical pulsing using sine wave
+        offset_y = amplitude * math.sin(2 * math.pi * speed * time)
+        image_rect.y -= 40 + offset_y
+
         pygame.draw.rect(surface, BLUE, self.rect)
+        surface.blit(scaled_image, image_rect)
+
 
 
 # ============================
@@ -476,7 +513,7 @@ class Game:
                 box.draw(self.screen, transparency, glow)
             for mask in self.level.masks:
                 mask.draw(self.screen)
-            self.player.draw(self.screen)
+            self.player.draw(self.screen, time.time_ns()/1000000000)
             if self.level.is_solved(self.boxes):
                 self.draw_you_won()
             self.draw_hud()
