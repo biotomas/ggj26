@@ -26,10 +26,10 @@ In Pycharm click in menu
 
 ## TODO
 - [ ] sound effects
-- [ ] camera movement
 - [ ] video
 - [ ] story and tutorial cards
 - [ ] level generator
+- [X] camera movement
 - [x] pause after level win
 - [X] implement break and walk through boxes
 - [X] pickup and swap masks
