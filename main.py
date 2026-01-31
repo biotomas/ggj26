@@ -226,10 +226,24 @@ class Mask:
 # ============================
 
 class Box:
+    SLIDE_SPEED = 6.0  # tiles per second
+
     def __init__(self, grid_pos: GridPos) -> None:
         self.grid_pos = grid_pos
 
-    def try_push(self, direction: Vector2, level: Level, boxes: Iterable[Box]) -> bool:
+        # Visual position (in pixels)
+        self.pixel_pos = pygame.Vector2(
+            grid_pos.x * TILE_SIZE,
+            grid_pos.y * TILE_SIZE,
+        )
+
+        # Sliding state
+        self.target_pixel_pos = self.pixel_pos.copy()
+        self.sliding = False
+
+    # --------------------------------------------------
+
+    def try_push(self, direction: Vector2, level: Level, boxes: Iterable["Box"]) -> bool:
         dx = int(direction.x)
         dy = int(direction.y)
         target = GridPos(self.grid_pos.x + dx, self.grid_pos.y + dy)
@@ -240,30 +254,62 @@ class Box:
         if any(b.grid_pos == target for b in boxes):
             return False
 
+        # Logical move
         self.grid_pos = target
+
+        # Visual slide target
+        self.target_pixel_pos = pygame.Vector2(
+            target.x * TILE_SIZE,
+            target.y * TILE_SIZE,
+        )
+        self.sliding = True
+
         return True
+
+    # --------------------------------------------------
+
+    def update(self, dt: float) -> None:
+        """
+        dt = delta time in seconds
+        """
+        if not self.sliding:
+            return
+
+        direction = self.target_pixel_pos - self.pixel_pos
+        distance = direction.length()
+
+        if distance < 0.01:  # small tolerance
+            self.pixel_pos = self.target_pixel_pos
+            self.sliding = False
+            return
+
+        # Move by step, but do not overshoot
+        move_dist = self.SLIDE_SPEED * TILE_SIZE * dt
+        if move_dist >= distance:
+            self.pixel_pos = self.target_pixel_pos
+            self.sliding = False
+        else:
+            direction.normalize_ip()
+            self.pixel_pos += direction * move_dist
+    # --------------------------------------------------
 
     def draw(self, surface: pygame.Surface, transparency: float, glows: bool) -> None:
         alpha = max(0, min(255, int(transparency * 255)))
 
-        # Target rectangle for the tile
         rect = pygame.Rect(
-            self.grid_pos.x * TILE_SIZE,
-            self.grid_pos.y * TILE_SIZE,
+            int(self.pixel_pos.x),
+            int(self.pixel_pos.y),
             TILE_SIZE,
             TILE_SIZE,
         )
 
         image = crystal_glow if glows else crystal_normal
-        # Scale the image to fit the tile
-        scaled_image = pygame.transform.smoothscale(image, (rect.width, rect.height))
+        scaled_image = pygame.transform.smoothscale(image, rect.size)
 
-        # Apply transparency if needed
         if alpha < 255:
-            scaled_image = scaled_image.copy()  # don't modify original
+            scaled_image = scaled_image.copy()
             scaled_image.set_alpha(alpha)
 
-        # Draw the image
         surface.blit(scaled_image, rect.topleft)
 
 
@@ -552,6 +598,7 @@ class Game:
 
             self.level.draw(self.screen)
             for box in self.boxes:
+                box.update(dt)
                 transparency = 0.5 if self.player.current_ability == Power.IGNORE else 1
                 glow = box.grid_pos in self.level.goals
                 box.draw(self.screen, transparency, glow)

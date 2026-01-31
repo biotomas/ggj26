@@ -25,15 +25,18 @@ In Pycharm click in menu
 - right click on **main.py** and select **run**
 
 ## TODO
+- [ ] pause after level win
+- [ ] sound effects
+- [ ] camera movement
+- [ ] video
+- [ ] story and tutorial cards
+- [ ] level generator
 - [X] implement break and walk through boxes
 - [X] pickup and swap masks
-- [ ] reskin the game to look good (box is crystal)
-- [ ] animated sliding boxes
-- [ ] good looking animated character
-- [ ] sound effects
-- [ ] music
-- [ ] story and tutorial cards
-- [ ] levels
-- [ ] level generator
+- [x] reskin the game to look good (box is crystal)
+- [x] animated sliding boxes
+- [x] good looking animated character
+- [x] music
+- [x] levels
 
 Spawn_Point_2025!
