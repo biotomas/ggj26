@@ -11,6 +11,20 @@ from pygame.math import Vector2
 
 from levels import all_levels
 
+import os
+import sys
+
+#Needed by PyInstaller
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 # ============================
 # Config / Constants
 # ============================
@@ -27,18 +41,18 @@ DARK_GRAY: Color = (60, 60, 60)
 BLUE: Color = (80, 140, 255)
 BROWN: Color = (160, 110, 60)
 
-break_mask = pygame.image.load("assets/break_mask.png")
-ignore_mask = pygame.image.load("assets/ignore_mask.png")
-push_mask = pygame.image.load("assets/push_mask.png")
-floor_normal = pygame.image.load("assets/floor.png")
-floor_glow = pygame.image.load("assets/floor_glow.png")
-crystal_normal = pygame.image.load("assets/crystal_normal.png")
-crystal_glow = pygame.image.load("assets/crystal_glow.png")
-background = pygame.image.load("assets/background.jpg")
-hero_down = pygame.image.load("assets/hero_down.png")
-hero_up = pygame.image.load("assets/hero_up.png")
-hero_left = pygame.image.load("assets/hero_left.png")
-hero_right = pygame.image.load("assets/hero_right.png")
+break_mask = pygame.image.load(resource_path("assets/break_mask.png"))
+ignore_mask = pygame.image.load(resource_path("assets/ignore_mask.png"))
+push_mask = pygame.image.load(resource_path("assets/push_mask.png"))
+floor_normal = pygame.image.load(resource_path("assets/floor.png"))
+floor_glow = pygame.image.load(resource_path("assets/floor_glow.png"))
+crystal_normal = pygame.image.load(resource_path("assets/crystal_normal.png"))
+crystal_glow = pygame.image.load(resource_path("assets/crystal_glow.png"))
+background = pygame.image.load(resource_path("assets/background.jpg"))
+hero_down = pygame.image.load(resource_path("assets/hero_down.png"))
+hero_up = pygame.image.load(resource_path("assets/hero_up.png"))
+hero_left = pygame.image.load(resource_path("assets/hero_left.png"))
+hero_right = pygame.image.load(resource_path("assets/hero_right.png"))
 
 # ============================
 # Grid Utilities
@@ -436,10 +450,10 @@ class Player:
 class MusicManager:
     def __init__(self, volume=1.0, fade_ms=300):
         files = [
-            "assets/music/main.ogg",
-            "assets/music/push.ogg",
-            "assets/music/break.ogg",
-            "assets/music/ignore.ogg"
+            resource_path("assets/music/main.ogg"),
+            resource_path("assets/music/push.ogg"),
+            resource_path("assets/music/break.ogg"),
+            resource_path("assets/music/ignore.ogg")
         ]
 
         self.sounds = [pygame.mixer.Sound(f) for f in files]
