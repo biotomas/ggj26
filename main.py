@@ -43,7 +43,8 @@ hero_right = pygame.image.load("assets/hero_right.png")
 pygame.mixer.init()
 
 break_sound = pygame.mixer.Sound("assets/sound/break1.mp3")
-push_sound = pygame.mixer.Sound("assets/sound/push1.mp3")
+push_sound = pygame.mixer.Sound("assets/sound/push.mp3")
+move_sound = pygame.mixer.Sound("assets/sound/move.mp3")
 
 # ============================
 # Grid Utilities
@@ -55,7 +56,7 @@ class GridPos:
     y: int
 
     def to_world(self) -> Vector2:
-        return Vector2(self.x * TILE_SIZE, self.y * TILE_SIZE)
+        return Vector2(pygame.Rect(self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE).center)
 
 
 # ============================
@@ -265,7 +266,7 @@ class Mask:
 # ============================
 
 class Box:
-    SLIDE_SPEED = 3.0  # tiles per second
+    SLIDE_SPEED = 1.5  # tiles per second
 
     def __init__(self, grid_pos: GridPos) -> None:
         self.grid_pos = grid_pos
@@ -365,6 +366,7 @@ class Player:
         self.abilities = {Power.NONE}
         self.current_ability = Power.NONE
         self.facing = None
+        self.moving = False
 
     @property
     def rect(self) -> pygame.Rect:
@@ -386,8 +388,16 @@ class Player:
         if input_dir.length_squared() > 0:
             self.facing = input_dir
             self.velocity = input_dir.normalize() * PLAYER_SPEED
+            if not self.moving:
+                self.moving = True
+                move_sound.play(loops=-1)
+                print("play move sound")
         else:
             self.velocity = Vector2(0, 0)
+            if self.moving:
+                self.moving = False
+                move_sound.stop()
+                print("stop move channel")
 
         new_pos = self.position + self.velocity * dt
         future_rect = pygame.Rect(new_pos, self.size)
@@ -711,7 +721,7 @@ class Game:
                 if event.type == WIN_EVENT:
                     self.draw_you_won()
                     pygame.display.flip()
-                    pygame.time.delay(2000)
+                    pygame.time.delay(1000)
                     self.level_index = (self.level_index + 1) % len(all_levels)
                     self.restart_level()
                     win_state = False
@@ -733,7 +743,7 @@ class Game:
             self.player.draw(self.screen, time.time_ns()/1000000000, self.camera)
             if not win_state and self.level.is_solved(self.boxes):
                 win_state = True
-                pygame.time.set_timer(WIN_EVENT, 500, loops=1)
+                pygame.time.set_timer(WIN_EVENT, 1000, loops=1)
             self.draw_hud()
             if previous_ability != self.player.current_ability:
                 previous_ability = self.player.current_ability
