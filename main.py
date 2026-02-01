@@ -56,9 +56,9 @@ hero_right = pygame.image.load(resource_path("assets/hero_right.png"))
 
 pygame.mixer.init()
 
-break_sound = pygame.mixer.Sound("assets/sound/break1.mp3")
-push_sound = pygame.mixer.Sound("assets/sound/push.mp3")
-move_sound = pygame.mixer.Sound("assets/sound/move.mp3")
+break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.mp3"))
+push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.mp3"))
+move_sound = pygame.mixer.Sound(resource_path("assets/sound/move.mp3"))
 
 # ============================
 # Grid Utilities
