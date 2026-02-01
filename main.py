@@ -291,6 +291,9 @@ class Box:
         if level.is_wall(target):
             return False
 
+        if self.sliding:
+            return False
+
         if any(b.grid_pos == target for b in boxes):
             return False
 
@@ -422,7 +425,7 @@ class Player:
                     TILE_SIZE,
                     TILE_SIZE,
                 )
-                if future_rect.colliderect(box_rect):
+                if box_rect.collidepoint(future_rect.center):
                     direction = Vector2(round(input_dir.x), round(input_dir.y))
                     if self.current_ability == Power.BREAK:
                         boxes.remove(box)
