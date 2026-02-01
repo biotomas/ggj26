@@ -40,6 +40,11 @@ hero_up = pygame.image.load("assets/hero_up.png")
 hero_left = pygame.image.load("assets/hero_left.png")
 hero_right = pygame.image.load("assets/hero_right.png")
 
+pygame.mixer.init()
+
+break_sound = pygame.mixer.Sound("assets/sound/break1.mp3")
+push_sound = pygame.mixer.Sound("assets/sound/push1.mp3")
+
 # ============================
 # Grid Utilities
 # ============================
@@ -69,6 +74,40 @@ level_str: str = """
 ######
 """
 
+class LevelText:
+    def __init__(self, pos: GridPos, text: str) -> None:
+        self.pos = pos
+        font = pygame.font.Font(None, 40)
+        self.text = font.render(text, False, (20, 20, 20))
+
+    def draw(self, surface: pygame.Surface, camera: Camera2D) -> None:
+
+        # Center the text
+        rect = pygame.Rect(
+            self.pos.x * TILE_SIZE,
+            self.pos.y * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE,
+        )
+        rect = self.text.get_rect(center=rect.center)
+        # rect = camera.apply_rect(rect)
+
+        # --- Create a temporary surface for the rounded rectangle ---
+        padding = 20  # space around the text
+        radius = 16  # corner radius
+
+        bg_surf = pygame.Surface(
+            (rect.width + padding * 2, rect.height + padding * 2), pygame.SRCALPHA
+        )
+        bg_color = (150, 150, 150, 180)  # semi-transparent gray (A=180)
+        pygame.draw.rect(bg_surf, bg_color, bg_surf.get_rect(), border_radius=radius)
+
+        # --- Blit the background and then the text ---
+        bg_rect = bg_surf.get_rect(center=rect.center)
+        camera.blit(surface, bg_surf, bg_rect.topleft)
+        camera.blit(surface, self.text, rect.topleft)
+
+
 
 class Level:
     def __init__(self, level: str) -> None:
@@ -77,11 +116,15 @@ class Level:
         self.floors: set[GridPos] = set()
         self.boxes: set[GridPos] = set()
         self.masks: set[Mask] = set()
+        self.text: set[LevelText] = set()
         self.player: GridPos | None = None
 
         rows = [row.rstrip("\n") for row in level.strip("\n").splitlines()]
 
         for y, row in enumerate(rows):
+            row, text_x, text = (row.split("_", 2) + [None, None])[:3]
+            if text and text_x:
+                self.text.add(LevelText(GridPos(int(text_x), y), text))
             for x, ch in enumerate(row):
                 pos = GridPos(x, y)
 
@@ -147,14 +190,7 @@ class Level:
 
             # Draw the image
             camera.blit(surface, scaled_image, rect.topleft)
-        # for wall in self.walls:
-        #     rect = pygame.Rect(
-        #         wall.x * TILE_SIZE,
-        #         wall.y * TILE_SIZE,
-        #         TILE_SIZE,
-        #         TILE_SIZE,
-        #     )
-        #     pygame.draw.rect(surface, DARK_GRAY, rect)
+
         for goal in self.goals:
             rect = pygame.Rect(
                 goal.x * TILE_SIZE,
@@ -167,6 +203,9 @@ class Level:
 
             # Draw the image
             camera.blit(surface, scaled_image, rect.topleft)
+
+        for text in self.text:
+            text.draw(surface, camera)
 
 
 class Power(Enum):
@@ -226,7 +265,7 @@ class Mask:
 # ============================
 
 class Box:
-    SLIDE_SPEED = 6.0  # tiles per second
+    SLIDE_SPEED = 3.0  # tiles per second
 
     def __init__(self, grid_pos: GridPos) -> None:
         self.grid_pos = grid_pos
@@ -263,6 +302,7 @@ class Box:
             target.y * TILE_SIZE,
         )
         self.sliding = True
+        push_sound.play()
 
         return True
 
@@ -376,13 +416,14 @@ class Player:
                     direction = Vector2(round(input_dir.x), round(input_dir.y))
                     if self.current_ability == Power.BREAK:
                         boxes.remove(box)
+                        break_sound.play()
                         return
                     if self.current_ability != Power.PUSH:
                         return
                     if not box.try_push(direction, level, boxes):
                         return
 
-        # Max pickup
+        # Mask pickup
         for mask in level.masks.copy():
             mask_rect = mask.rect
             if future_rect.colliderect(mask_rect):
@@ -430,7 +471,8 @@ class Player:
         offset_y = amplitude * math.sin(2 * math.pi * speed * time)
         image_rect.y -= 40 + offset_y
 
-        # pygame.draw.rect(surface, BLUE, self.rect)
+        #pygame.draw.rect(surface, (0,0,0), camera.apply_rect(self.rect))
+        pygame.draw.circle(surface, (0,0,0), camera.apply_rect(self.rect).center, self.rect.width // 2)
         camera.blit(surface, scaled_image, image_rect)
 
 class MusicManager:
