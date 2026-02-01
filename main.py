@@ -54,6 +54,12 @@ hero_up = pygame.image.load(resource_path("assets/hero_up.png"))
 hero_left = pygame.image.load(resource_path("assets/hero_left.png"))
 hero_right = pygame.image.load(resource_path("assets/hero_right.png"))
 
+shatter = [
+    pygame.image.load(resource_path("assets/shatter1.png")),
+    pygame.image.load(resource_path("assets/shatter2.png")),
+    pygame.image.load(resource_path("assets/shatter3.png"))
+]
+
 pygame.mixer.init()
 
 break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.mp3"))
@@ -371,6 +377,35 @@ class Box:
         camera.blit(surface, scaled_image, rect.topleft)
 
 
+class ShatterAnimation:
+    def __init__(self, pos: GridPos) -> None:
+        self.pos: GridPos = pos
+        self.start = time.time()
+        self.step = 0
+
+    def update(self) -> bool:
+        if (time.time() - self.start) < 0.1:
+            return True
+        self.start = time.time()
+        self.step += 1
+        if self.step >= len(shatter):
+            return False
+        return True
+
+    def draw(self, surface: pygame.Surface, camera: Camera2D) -> None:
+        rect = pygame.Rect(
+            self.pos.x * TILE_SIZE,
+            self.pos.y * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE,
+        )
+
+        image = shatter[self.step]
+        scaled_image = pygame.transform.smoothscale(image, rect.size)
+
+        camera.blit(surface, scaled_image, rect.topleft)
+
+
 # ============================
 # Player (Fluid movement)
 # ============================
@@ -384,6 +419,7 @@ class Player:
         self.current_ability = Power.NONE
         self.facing = None
         self.moving = False
+        self.shatters = list()
 
     @property
     def rect(self) -> pygame.Rect:
@@ -442,6 +478,7 @@ class Player:
                     if self.current_ability == Power.BREAK:
                         boxes.remove(box)
                         break_sound.play()
+                        self.shatters.append(ShatterAnimation(box.grid_pos))
                         return
                     if self.current_ability != Power.PUSH:
                         return
@@ -499,6 +536,13 @@ class Player:
         #pygame.draw.rect(surface, (0,0,0), camera.apply_rect(self.rect))
         pygame.draw.circle(surface, (0,0,0), camera.apply_rect(self.rect).center, self.rect.width // 2)
         camera.blit(surface, scaled_image, image_rect)
+
+        for shatter in self.shatters.copy():
+            if shatter.update():
+                shatter.draw(surface, camera)
+            else:
+                self.shatters.remove(shatter)
+
 
 class MusicManager:
     def __init__(self, volume=1.0, fade_ms=300):
