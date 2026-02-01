@@ -10,7 +10,7 @@ Controls:
 
 Credits:
 - programming: Tomas Balyo, ChatGPT
-- music: Meinrad Weiler
+- music and sound: Meinrad Weiler
 - level design Mihai Herda, Tomas Balyo
 - visuals: ChatGPT, Grok
 
@@ -25,10 +25,11 @@ In Pycharm click in menu
 - right click on **main.py** and select **run**
 
 ## TODO
-- [ ] build
-- [ ] screenshots, video, ggj page
-- [ ] itch.io page
+- [ ] web build
 - [ ] level generator
+- [X] itch.io page
+- [x] build
+- [x] screenshots, video, ggj page
 - [x] sound effects
 - [x] video
 - [x] story and tutorial cards
