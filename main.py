@@ -394,13 +394,11 @@ class Player:
             if not self.moving:
                 self.moving = True
                 move_sound.play(loops=-1)
-                print("play move sound")
         else:
             self.velocity = Vector2(0, 0)
             if self.moving:
                 self.moving = False
                 move_sound.stop()
-                print("stop move channel")
 
         new_pos = self.position + self.velocity * dt
         future_rect = pygame.Rect(new_pos, self.size)

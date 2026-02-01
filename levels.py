@@ -119,4 +119,4 @@ game_menu: str = """
 ####
 """
 
-all_levels = [level_str_all_masks_tutorial, game_menu, level_str_push_tutorial, level_str_ignore_tutorial, level_str_all_masks_tutorial, level_str_medium1, level_str_medium2, level_str_medium3, level_str_hard1, level_str_hard2]
+all_levels = [game_menu, level_str_push_tutorial, level_str_ignore_tutorial, level_str_all_masks_tutorial, level_str_medium1, level_str_medium2, level_str_medium3, level_str_hard1, level_str_hard2]
