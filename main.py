@@ -658,6 +658,8 @@ class Game:
         self.player = None
         self.boxes = None
         self.level_index = 0
+        self.hud_area = None
+        self.reset_area = None
 
         self.initialized = False  # Flag to track setup
 
@@ -693,6 +695,7 @@ class Game:
         y = SCREEN_SIZE[1] - slot_size - bottom_margin
 
         hud_rect = pygame.Rect(start_x - padding, y - padding, total_width + 2 * padding, hud_height + 2 * padding)
+        self.hud_area = hud_rect
 
         # --- Draw semi-transparent background ---
         bg_surf = pygame.Surface((hud_rect.width, hud_rect.height), pygame.SRCALPHA)
@@ -737,6 +740,30 @@ class Game:
             img_rect = scaled.get_rect(center=slot_rect.center)
             self.screen.blit(scaled, img_rect)
 
+        # draw the reset button
+        font = pygame.font.Font(None, 40)
+        text = font.render("Reset Level", True, (120, 20, 20))
+
+        # Center the text
+        rect = text.get_rect(center=(100, SCREEN_SIZE[1] - 40))
+
+        # --- Create a temporary surface for the rounded rectangle ---
+        padding = 20  # space around the text
+        radius = 16  # corner radius
+
+        bg_surf = pygame.Surface(
+            (rect.width + padding * 2, rect.height + padding * 2), pygame.SRCALPHA
+        )
+        bg_color = (150, 150, 150, 180)  # semi-transparent gray (A=180)
+        pygame.draw.rect(bg_surf, bg_color, bg_surf.get_rect(), border_radius=radius)
+
+        # --- Blit the background and then the text ---
+        bg_rect = bg_surf.get_rect(center=rect.center)
+        self.reset_area = bg_rect
+        self.screen.blit(bg_surf, bg_rect.topleft)
+        self.screen.blit(text, rect.topleft)
+
+
     def draw_you_won(self) -> None:
         font = pygame.font.Font(None, 64)
         text = font.render("Well done!", True, (20, 20, 20))
@@ -761,11 +788,34 @@ class Game:
 
     def input_direction(self) -> Vector2:
         keys = pygame.key.get_pressed()
-        return Vector2(
+        direction = Vector2(
             keys[pygame.K_d] - keys[pygame.K_a],
             keys[pygame.K_s] - keys[pygame.K_w],
         )
 
+        # Add touch/mouse input
+        mouse_pressed = pygame.mouse.get_pressed()
+        if mouse_pressed[0]:  # Left mouse button or touch
+            x, y = pygame.mouse.get_pos()
+            if not self.hud_area.collidepoint(x, y) and not self.reset_area.collidepoint(x, y):
+                # Left side of the screen
+                if x < SCREEN_SIZE[0] * 0.3:
+                    direction.x -= 1
+                # Right side of the screen
+                elif x > SCREEN_SIZE[0] * 0.7:
+                    direction.x += 1
+                # Top of the screen
+                if y < SCREEN_SIZE[1] * 0.5:
+                    direction.y -= 1
+                # Bottom of the screen
+                elif y > SCREEN_SIZE[1] * 0.5:
+                    direction.y += 1
+
+        # Normalize to prevent faster diagonal movement
+        if direction.length() > 0:
+            direction = direction.normalize()
+
+        return direction
     async def run(self) -> None:
         # DO ALL LOADING HERE INSTEAD OF __INIT__
         if not self.initialized:
@@ -823,6 +873,12 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Left click
+                        if self.hud_area and self.hud_area.collidepoint(event.pos):
+                            self.player.next_ability()
+                        if self.reset_area and self.reset_area.collidepoint(event.pos):
+                            self.restart_level()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         self.player.next_ability()

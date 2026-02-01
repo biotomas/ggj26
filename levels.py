@@ -101,7 +101,7 @@ game_menu: str = """
 #####_2_Welcome Maztek Spirit Warrior!
 #   #
 # @ #_6_Use WASD keys to move
-#   #
+#   #_6_or touch the edges of the screen
 ##P#_-1_pick up this mask ->
 ## #_-1_so you can push crystals
 ## #######_6_Push the crystal to start a New Game!
