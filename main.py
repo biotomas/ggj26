@@ -62,14 +62,14 @@ shatter = [
 
 pygame.mixer.init()
 
-break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.mp3"))
-push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.mp3"))
+break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.ogg"))
+push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.ogg"))
 
 mask_sounds = [
-    pygame.mixer.Sound(resource_path("assets/sound/noMask.mp3")),
-    pygame.mixer.Sound(resource_path("assets/sound/greenMask.mp3")),
-    pygame.mixer.Sound(resource_path("assets/sound/redMask.mp3")),
-    pygame.mixer.Sound(resource_path("assets/sound/greyMask.mp3"))
+    pygame.mixer.Sound(resource_path("assets/sound/noMask.ogg")),
+    pygame.mixer.Sound(resource_path("assets/sound/greenMask.ogg")),
+    pygame.mixer.Sound(resource_path("assets/sound/redMask.ogg")),
+    pygame.mixer.Sound(resource_path("assets/sound/greyMask.ogg"))
 ]
 
 # ============================
