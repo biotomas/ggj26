@@ -25,11 +25,11 @@ In Pycharm click in menu
 - right click on **main.py** and select **run**
 
 ## TODO
-- [ ] sound effects
 - [ ] build
 - [ ] screenshots, video, ggj page
 - [ ] itch.io page
 - [ ] level generator
+- [x] sound effects
 - [x] video
 - [x] story and tutorial cards
 - [X] camera movement
