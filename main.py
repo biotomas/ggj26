@@ -805,10 +805,10 @@ class Game:
                 elif x > SCREEN_SIZE[0] * 0.7:
                     direction.x += 1
                 # Top of the screen
-                if y < SCREEN_SIZE[1] * 0.5:
+                if y < SCREEN_SIZE[1] * 0.3:
                     direction.y -= 1
                 # Bottom of the screen
-                elif y > SCREEN_SIZE[1] * 0.5:
+                elif y > SCREEN_SIZE[1] * 0.7:
                     direction.y += 1
 
         # Normalize to prevent faster diagonal movement
