@@ -1,5 +1,7 @@
 # Maztek Spirit Warrior
 
+Play in the browser or download windows binary at https://biotomas.itch.io/maztek-spirit-warrior
+
 Each glowing floor tile must be covered by a crystal, otherwise the devil will escape and destroy the world!
 Pickup masks to gain new abilities.
 
@@ -24,9 +26,13 @@ In Pycharm click in menu
     - click **create virtual environment using the requirements.txt**
 - right click on **main.py** and select **run**
 
+## How to build a distributable version
+- for a windows build run `createexecutable.bat` then find the `exe` in the `dist` folder.
+- for web build install pygbag (`pip install pygbag`) then  run `pygbag main.py` and find the result in `build/web`
+
 ## TODO
-- [ ] web build
 - [ ] level generator
+- [x] web build
 - [X] itch.io page
 - [x] build
 - [x] screenshots, video, ggj page

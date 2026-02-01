@@ -9,21 +9,32 @@ from typing import Iterable, List
 import pygame
 from pygame.math import Vector2
 
-from levels import all_levels
+try:
+    from levels import all_levels
+except ImportError:
+    # This is a common workaround for certain pygbag versions
+    import levels
+    all_levels = levels.all_levels
 
 import os
 import sys
 
-#Needed by PyInstaller
+import asyncio
+
+
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
+    """ Get absolute path to resource, compatible with PyInstaller and Pygbag """
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        # Check for PyInstaller's temporary folder
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        # For Pygbag and local dev, use the directory of the script
+        # This is more reliable than abspath(".") in a browser context
+        base_path = os.path.dirname(__file__)
 
-    return os.path.join(base_path, relative_path)
+    # Ensure we use forward slashes for the web virtual filesystem
+    path = os.path.join(base_path, relative_path)
+    return path.replace("\\", "/")
 
 # ============================
 # Config / Constants
@@ -41,36 +52,26 @@ DARK_GRAY: Color = (60, 60, 60)
 BLUE: Color = (80, 140, 255)
 BROWN: Color = (160, 110, 60)
 
-break_mask = pygame.image.load(resource_path("assets/break_mask.png"))
-ignore_mask = pygame.image.load(resource_path("assets/ignore_mask.png"))
-push_mask = pygame.image.load(resource_path("assets/push_mask.png"))
-floor_normal = pygame.image.load(resource_path("assets/floor.png"))
-floor_glow = pygame.image.load(resource_path("assets/floor_glow.png"))
-crystal_normal = pygame.image.load(resource_path("assets/crystal_normal.png"))
-crystal_glow = pygame.image.load(resource_path("assets/crystal_glow.png"))
-background = pygame.image.load(resource_path("assets/background.jpg"))
-hero_down = pygame.image.load(resource_path("assets/hero_down.png"))
-hero_up = pygame.image.load(resource_path("assets/hero_up.png"))
-hero_left = pygame.image.load(resource_path("assets/hero_left.png"))
-hero_right = pygame.image.load(resource_path("assets/hero_right.png"))
+break_mask = None
+ignore_mask = None
+push_mask = None
+floor_normal = None
+floor_glow = None
+crystal_normal = None
+crystal_glow = None
+background = None
+hero_down = None
+hero_up = None
+hero_left = None
+hero_right = None
 
-shatter = [
-    pygame.image.load(resource_path("assets/shatter1.png")),
-    pygame.image.load(resource_path("assets/shatter2.png")),
-    pygame.image.load(resource_path("assets/shatter3.png"))
-]
+shatter = None
 
-pygame.mixer.init()
+break_sound = None
+push_sound = None
+move_sound = None
 
-break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.ogg"))
-push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.ogg"))
-
-mask_sounds = [
-    pygame.mixer.Sound(resource_path("assets/sound/noMask.ogg")),
-    pygame.mixer.Sound(resource_path("assets/sound/greenMask.ogg")),
-    pygame.mixer.Sound(resource_path("assets/sound/redMask.ogg")),
-    pygame.mixer.Sound(resource_path("assets/sound/greyMask.ogg"))
-]
+mask_sounds = None
 
 # ============================
 # Grid Utilities
@@ -644,18 +645,21 @@ WIN_EVENT = pygame.USEREVENT + 1
 class Game:
     def __init__(self) -> None:
         pygame.init()
-        self.music = MusicManager()
-
-
+        pygame.mixer.init()
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
-        self.camera = Camera2D(SCREEN_SIZE[0], SCREEN_SIZE[1])
         pygame.display.set_caption("Maztek Spirit Warrior")
+
+
+
+        self.camera = Camera2D(SCREEN_SIZE[0], SCREEN_SIZE[1])
+        self.music  = None
         self.clock = pygame.time.Clock()
         self.level = None
         self.player = None
         self.boxes = None
         self.level_index = 0
-        self.restart_level()
+
+        self.initialized = False  # Flag to track setup
 
 
     def restart_level(self) -> None:
@@ -762,7 +766,54 @@ class Game:
             keys[pygame.K_s] - keys[pygame.K_w],
         )
 
-    def run(self) -> None:
+    async def run(self) -> None:
+        # DO ALL LOADING HERE INSTEAD OF __INIT__
+        if not self.initialized:
+            global background, floor_normal, floor_glow, crystal_normal, crystal_glow
+            global hero_down, hero_up, hero_left, hero_right
+            global break_mask, ignore_mask, push_mask
+            global break_sound, push_sound, move_sound, shatter, mask_sounds
+
+            background = pygame.image.load(resource_path("assets/background.png"))
+            floor_normal = pygame.image.load(resource_path("assets/floor.png"))
+            floor_glow = pygame.image.load(resource_path("assets/floor_glow.png"))
+            crystal_normal = pygame.image.load(resource_path("assets/crystal_normal.png"))
+            crystal_glow = pygame.image.load(resource_path("assets/crystal_glow.png"))
+            await asyncio.sleep(0.1)
+            break_mask = pygame.image.load(resource_path("assets/break_mask.png"))
+            ignore_mask = pygame.image.load(resource_path("assets/ignore_mask.png"))
+            push_mask = pygame.image.load(resource_path("assets/push_mask.png"))
+            await asyncio.sleep(0.1)
+            hero_down = pygame.image.load(resource_path("assets/hero_down.png"))
+            hero_up = pygame.image.load(resource_path("assets/hero_up.png"))
+            hero_left = pygame.image.load(resource_path("assets/hero_left.png"))
+            hero_right = pygame.image.load(resource_path("assets/hero_right.png"))
+            await asyncio.sleep(0.1)
+            shatter = [
+                pygame.image.load(resource_path("assets/shatter1.png")),
+                pygame.image.load(resource_path("assets/shatter2.png")),
+                pygame.image.load(resource_path("assets/shatter3.png"))
+            ]
+
+            pygame.mixer.init()
+
+            break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.ogg"))
+            push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.ogg"))
+
+            mask_sounds = [
+                pygame.mixer.Sound(resource_path("assets/sound/noMask.ogg")),
+                pygame.mixer.Sound(resource_path("assets/sound/greenMask.ogg")),
+                pygame.mixer.Sound(resource_path("assets/sound/redMask.ogg")),
+                pygame.mixer.Sound(resource_path("assets/sound/greyMask.ogg"))
+            ]
+            break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.ogg"))
+            push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.ogg"))
+
+            self.music = MusicManager()
+            self.camera = Camera2D(SCREEN_SIZE[0], SCREEN_SIZE[1])
+            self.restart_level()
+            self.initialized = True
+
         running = True
         win_state = False
         previous_ability = self.player.current_ability
@@ -780,7 +831,8 @@ class Game:
                 if event.type == WIN_EVENT:
                     self.draw_you_won()
                     pygame.display.flip()
-                    pygame.time.delay(1000)
+                    #pygame.time.delay(1000)
+                    await asyncio.sleep(1.0)
                     self.level_index = (self.level_index + 1) % len(all_levels)
                     self.restart_level()
                     win_state = False
@@ -799,7 +851,7 @@ class Game:
                 box.draw(self.screen, transparency, glow, self.camera)
             for mask in self.level.masks:
                 mask.draw(self.screen, self.camera)
-            self.player.draw(self.screen, time.time_ns()/1000000000, self.camera)
+            self.player.draw(self.screen, pygame.time.get_ticks()/1000.0, self.camera)
             if not win_state and self.level.is_solved(self.boxes):
                 win_state = True
                 pygame.time.set_timer(WIN_EVENT, 1000, loops=1)
@@ -809,9 +861,10 @@ class Game:
                 self.music.switch_to(self.player.current_ability.value)
 
             pygame.display.flip()
+            await asyncio.sleep(0)
 
         pygame.quit()
 
 
 if __name__ == "__main__":
-    Game().run()
+    asyncio.run(Game().run())
