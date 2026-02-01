@@ -64,7 +64,13 @@ pygame.mixer.init()
 
 break_sound = pygame.mixer.Sound(resource_path("assets/sound/break1.mp3"))
 push_sound = pygame.mixer.Sound(resource_path("assets/sound/push.mp3"))
-move_sound = pygame.mixer.Sound(resource_path("assets/sound/move.mp3"))
+
+mask_sounds = [
+    pygame.mixer.Sound(resource_path("assets/sound/noMask.mp3")),
+    pygame.mixer.Sound(resource_path("assets/sound/greenMask.mp3")),
+    pygame.mixer.Sound(resource_path("assets/sound/redMask.mp3")),
+    pygame.mixer.Sound(resource_path("assets/sound/greyMask.mp3"))
+]
 
 # ============================
 # Grid Utilities
@@ -418,7 +424,6 @@ class Player:
         self.abilities = {Power.NONE}
         self.current_ability = Power.NONE
         self.facing = None
-        self.moving = False
         self.shatters = list()
 
     @property
@@ -441,14 +446,8 @@ class Player:
         if input_dir.length_squared() > 0:
             self.facing = input_dir
             self.velocity = input_dir.normalize() * PLAYER_SPEED
-            if not self.moving:
-                self.moving = True
-                move_sound.play(loops=-1)
         else:
             self.velocity = Vector2(0, 0)
-            if self.moving:
-                self.moving = False
-                move_sound.stop()
 
         new_pos = self.position + self.velocity * dt
         future_rect = pygame.Rect(new_pos, self.size)
@@ -491,6 +490,7 @@ class Player:
             if future_rect.colliderect(mask_rect):
                 self.abilities.add(mask.power)
                 self.current_ability = mask.power
+                mask_sounds[mask.power.value].play()
                 level.masks.remove(mask)
 
         self.position = new_pos
