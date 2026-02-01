@@ -54,6 +54,12 @@ hero_up = pygame.image.load(resource_path("assets/hero_up.png"))
 hero_left = pygame.image.load(resource_path("assets/hero_left.png"))
 hero_right = pygame.image.load(resource_path("assets/hero_right.png"))
 
+pygame.mixer.init()
+
+break_sound = pygame.mixer.Sound("assets/sound/break1.mp3")
+push_sound = pygame.mixer.Sound("assets/sound/push.mp3")
+move_sound = pygame.mixer.Sound("assets/sound/move.mp3")
+
 # ============================
 # Grid Utilities
 # ============================
@@ -64,7 +70,7 @@ class GridPos:
     y: int
 
     def to_world(self) -> Vector2:
-        return Vector2(self.x * TILE_SIZE, self.y * TILE_SIZE)
+        return Vector2(pygame.Rect(self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE).center)
 
 
 # ============================
@@ -83,6 +89,40 @@ level_str: str = """
 ######
 """
 
+class LevelText:
+    def __init__(self, pos: GridPos, text: str) -> None:
+        self.pos = pos
+        font = pygame.font.Font(None, 40)
+        self.text = font.render(text, False, (20, 20, 20))
+
+    def draw(self, surface: pygame.Surface, camera: Camera2D) -> None:
+
+        # Center the text
+        rect = pygame.Rect(
+            self.pos.x * TILE_SIZE,
+            self.pos.y * TILE_SIZE,
+            TILE_SIZE,
+            TILE_SIZE,
+        )
+        rect = self.text.get_rect(center=rect.center)
+        # rect = camera.apply_rect(rect)
+
+        # --- Create a temporary surface for the rounded rectangle ---
+        padding = 20  # space around the text
+        radius = 16  # corner radius
+
+        bg_surf = pygame.Surface(
+            (rect.width + padding * 2, rect.height + padding * 2), pygame.SRCALPHA
+        )
+        bg_color = (150, 150, 150, 180)  # semi-transparent gray (A=180)
+        pygame.draw.rect(bg_surf, bg_color, bg_surf.get_rect(), border_radius=radius)
+
+        # --- Blit the background and then the text ---
+        bg_rect = bg_surf.get_rect(center=rect.center)
+        camera.blit(surface, bg_surf, bg_rect.topleft)
+        camera.blit(surface, self.text, rect.topleft)
+
+
 
 class Level:
     def __init__(self, level: str) -> None:
@@ -91,11 +131,15 @@ class Level:
         self.floors: set[GridPos] = set()
         self.boxes: set[GridPos] = set()
         self.masks: set[Mask] = set()
+        self.text: set[LevelText] = set()
         self.player: GridPos | None = None
 
         rows = [row.rstrip("\n") for row in level.strip("\n").splitlines()]
 
         for y, row in enumerate(rows):
+            row, text_x, text = (row.split("_", 2) + [None, None])[:3]
+            if text and text_x:
+                self.text.add(LevelText(GridPos(int(text_x), y), text))
             for x, ch in enumerate(row):
                 pos = GridPos(x, y)
 
@@ -161,14 +205,7 @@ class Level:
 
             # Draw the image
             camera.blit(surface, scaled_image, rect.topleft)
-        # for wall in self.walls:
-        #     rect = pygame.Rect(
-        #         wall.x * TILE_SIZE,
-        #         wall.y * TILE_SIZE,
-        #         TILE_SIZE,
-        #         TILE_SIZE,
-        #     )
-        #     pygame.draw.rect(surface, DARK_GRAY, rect)
+
         for goal in self.goals:
             rect = pygame.Rect(
                 goal.x * TILE_SIZE,
@@ -181,6 +218,9 @@ class Level:
 
             # Draw the image
             camera.blit(surface, scaled_image, rect.topleft)
+
+        for text in self.text:
+            text.draw(surface, camera)
 
 
 class Power(Enum):
@@ -240,7 +280,7 @@ class Mask:
 # ============================
 
 class Box:
-    SLIDE_SPEED = 6.0  # tiles per second
+    SLIDE_SPEED = 1.5  # tiles per second
 
     def __init__(self, grid_pos: GridPos) -> None:
         self.grid_pos = grid_pos
@@ -265,6 +305,9 @@ class Box:
         if level.is_wall(target):
             return False
 
+        if self.sliding:
+            return False
+
         if any(b.grid_pos == target for b in boxes):
             return False
 
@@ -277,6 +320,7 @@ class Box:
             target.y * TILE_SIZE,
         )
         self.sliding = True
+        push_sound.play()
 
         return True
 
@@ -339,6 +383,7 @@ class Player:
         self.abilities = {Power.NONE}
         self.current_ability = Power.NONE
         self.facing = None
+        self.moving = False
 
     @property
     def rect(self) -> pygame.Rect:
@@ -360,8 +405,16 @@ class Player:
         if input_dir.length_squared() > 0:
             self.facing = input_dir
             self.velocity = input_dir.normalize() * PLAYER_SPEED
+            if not self.moving:
+                self.moving = True
+                move_sound.play(loops=-1)
+                print("play move sound")
         else:
             self.velocity = Vector2(0, 0)
+            if self.moving:
+                self.moving = False
+                move_sound.stop()
+                print("stop move channel")
 
         new_pos = self.position + self.velocity * dt
         future_rect = pygame.Rect(new_pos, self.size)
@@ -386,17 +439,18 @@ class Player:
                     TILE_SIZE,
                     TILE_SIZE,
                 )
-                if future_rect.colliderect(box_rect):
+                if box_rect.collidepoint(future_rect.center):
                     direction = Vector2(round(input_dir.x), round(input_dir.y))
                     if self.current_ability == Power.BREAK:
                         boxes.remove(box)
+                        break_sound.play()
                         return
                     if self.current_ability != Power.PUSH:
                         return
                     if not box.try_push(direction, level, boxes):
                         return
 
-        # Max pickup
+        # Mask pickup
         for mask in level.masks.copy():
             mask_rect = mask.rect
             if future_rect.colliderect(mask_rect):
@@ -444,7 +498,8 @@ class Player:
         offset_y = amplitude * math.sin(2 * math.pi * speed * time)
         image_rect.y -= 40 + offset_y
 
-        # pygame.draw.rect(surface, BLUE, self.rect)
+        #pygame.draw.rect(surface, (0,0,0), camera.apply_rect(self.rect))
+        pygame.draw.circle(surface, (0,0,0), camera.apply_rect(self.rect).center, self.rect.width // 2)
         camera.blit(surface, scaled_image, image_rect)
 
 class MusicManager:
@@ -683,7 +738,7 @@ class Game:
                 if event.type == WIN_EVENT:
                     self.draw_you_won()
                     pygame.display.flip()
-                    pygame.time.delay(2000)
+                    pygame.time.delay(1000)
                     self.level_index = (self.level_index + 1) % len(all_levels)
                     self.restart_level()
                     win_state = False
@@ -705,7 +760,7 @@ class Game:
             self.player.draw(self.screen, time.time_ns()/1000000000, self.camera)
             if not win_state and self.level.is_solved(self.boxes):
                 win_state = True
-                pygame.time.set_timer(WIN_EVENT, 500, loops=1)
+                pygame.time.set_timer(WIN_EVENT, 1000, loops=1)
             self.draw_hud()
             if previous_ability != self.player.current_ability:
                 previous_ability = self.player.current_ability

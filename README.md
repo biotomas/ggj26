@@ -25,10 +25,13 @@ In Pycharm click in menu
 - right click on **main.py** and select **run**
 
 ## TODO
-- [ ] sound effects
-- [ ] video
-- [ ] story and tutorial cards
+- [ ] build
+- [ ] screenshots, video, ggj page
+- [ ] itch.io page
 - [ ] level generator
+- [x] sound effects
+- [x] video
+- [x] story and tutorial cards
 - [X] camera movement
 - [x] pause after level win
 - [X] implement break and walk through boxes
@@ -38,5 +41,3 @@ In Pycharm click in menu
 - [x] good looking animated character
 - [x] music
 - [x] levels
-
-Spawn_Point_2025!
